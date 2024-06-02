@@ -22,7 +22,21 @@ Requirements:
 - For Stable Video Diffusion-XT (SVD-XT), a GPU with 24 GB or more VRAM
   is recommended.
 
-## Instructions
+## Installing
+
+The recommended way to install these nodes is to use the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager)
+to easily install them to your ComfyUI instance.
+
+You can also manually install them by git cloning the repo to your ComfyUI/custom_nodes folder and installing the requirements like:
+
+```
+cd custom_nodes
+git clone https://github.com/comfyanonymous/ComfyUI_TensorRT
+cd ComfyUI_TensorRT
+pip install -r requirements.txt
+```
+
+## Description
 
 NVIDIA TensorRT allows you to optimize how you run an AI model for your
 specific NVIDIA RTX GPU, unlocking the highest performance. To do this,
@@ -45,6 +59,11 @@ Note: Most users will prefer dynamic engines, but static engines can be
 useful if you use a specific resolution + batch size combination most of
 the time. Static engines also require less VRAM; the wider the dynamic
 range, the more VRAM will be consumed.
+
+## Instructions
+
+You can find different workflows in the [workflows](workflows) folder of this repo.
+These .json files can be loaded in ComfyUI.
 
 ### Building A TensorRT Engine From a Checkpoint
 
