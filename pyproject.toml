@@ -12,6 +12,6 @@ dependencies = [
 Repository = "https://github.com/comfyanonymous/ComfyUI_TensorRT"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "comfy"
 DisplayName = "ComfyUI-TensorRT"
 Icon = ""
