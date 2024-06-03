@@ -13,5 +13,5 @@ Repository = "https://github.com/comfyanonymous/ComfyUI_TensorRT"
 
 [tool.comfy]
 PublisherId = "comfy"
-DisplayName = "ComfyUI-TensorRT"
+DisplayName = "ComfyUI_TensorRT"
 Icon = ""
