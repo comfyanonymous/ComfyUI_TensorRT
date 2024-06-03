@@ -1,5 +1,5 @@
 [project]
-name = "ComfyUI_TensorRT"
+name = "comfyui_tensorrt"
 description = "TensorRT Node for ComfyUI\nThis node enables the best performance on NVIDIA RTX™ Graphics Cards  (GPUs) for Stable Diffusion by leveraging NVIDIA TensorRT."
 version = "1.0.0"
 license = "LICENSE"
