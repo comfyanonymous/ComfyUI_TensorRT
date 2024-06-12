@@ -7,6 +7,7 @@ Supports:
 
 - Stable Diffusion 1.5
 - Stable Diffusion 2.1
+- Stable Diffusion 3.0
 - SDXL
 - SDXL Turbo
 - Stable Video Diffusion
