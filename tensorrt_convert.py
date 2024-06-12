@@ -159,7 +159,17 @@ class TRT_MODEL_CONVERSION_BASE:
         comfy.model_management.load_models_gpu([model], force_patch_weights=True)
         unet = model.model.diffusion_model
 
-        if "context_dim" in model.model.model_config.unet_config:
+        context_dim = model.model.model_config.unet_config.get("context_dim", None)
+        context_len = 77
+        context_len_min = context_len
+
+        if context_dim is None: #SD3
+            context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
+            if context_embedder_config is not None:
+                context_dim = context_embedder_config.get("params", {}).get("in_features", None)
+                context_len = 154 #NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
+
+        if context_dim is not None:
             input_names = ["x", "timesteps", "context"]
             output_names = ["h"]
 
@@ -170,7 +180,6 @@ class TRT_MODEL_CONVERSION_BASE:
             }
 
             transformer_options = model.model_options['transformer_options'].copy()
-            context_len = 77
             if model.model.model_config.unet_config.get(
                 "use_temporal_resblock", False
             ):  # SVD
@@ -194,7 +203,7 @@ class TRT_MODEL_CONVERSION_BASE:
                 svd_unet.unet = unet
                 svd_unet.transformer_options = transformer_options
                 unet = svd_unet
-                context_len = 1
+                context_len_min = context_len = 1
             else:
                 class UNET(torch.nn.Module):
                     def forward(self, x, timesteps, context, y=None):
@@ -212,12 +221,10 @@ class TRT_MODEL_CONVERSION_BASE:
 
             input_channels = model.model.model_config.unet_config.get("in_channels")
 
-            context_dim = model.model.model_config.unet_config.get("context_dim")
-
             inputs_shapes_min = (
                 (batch_size_min, input_channels, height_min // 8, width_min // 8),
                 (batch_size_min,),
-                (batch_size_min, context_len * context_min, context_dim),
+                (batch_size_min, context_len_min * context_min, context_dim),
             )
             inputs_shapes_opt = (
                 (batch_size_opt, input_channels, height_opt // 8, width_opt // 8),

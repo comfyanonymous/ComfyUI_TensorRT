@@ -110,7 +110,7 @@ class TensorRTLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"unet_name": (folder_paths.get_filename_list("tensorrt"), ),
-                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd"], ),
+                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3"], ),
                              }}
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
@@ -141,7 +141,11 @@ class TensorRTLoader:
         elif model_type == "svd":
             conf = comfy.supported_models.SVD_img2vid({})
             conf.unet_config["disable_unet_model_creation"] = True
-            model = conf.get_model({})        
+            model = conf.get_model({})
+        elif model_type == "sd3":
+            conf = comfy.supported_models.SD3({})
+            conf.unet_config["disable_unet_model_creation"] = True
+            model = conf.get_model({})
         model.diffusion_model = unet
         model.memory_required = lambda *args, **kwargs: 0 #always pass inputs batched up as much as possible, our TRT code will handle batch splitting
 
