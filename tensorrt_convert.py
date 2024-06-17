@@ -24,6 +24,7 @@ else:
         {".engine"},
     )
 
+
 class TQDMProgressMonitor(trt.IProgressMonitor):
     def __init__(self):
         trt.IProgressMonitor.__init__(self)
@@ -93,14 +94,18 @@ class TQDMProgressMonitor(trt.IProgressMonitor):
         except KeyboardInterrupt:
             # There is no need to propagate this exception to TensorRT. We can simply cancel the build.
             return False
-        
+
 
 class TRT_MODEL_CONVERSION_BASE:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
         self.temp_dir = folder_paths.get_temp_directory()
         self.timing_cache_path = os.path.normpath(
-            os.path.join(os.path.join(os.path.dirname(os.path.realpath(__file__)), "timing_cache.trt"))
+            os.path.join(
+                os.path.join(
+                    os.path.dirname(os.path.realpath(__file__)), "timing_cache.trt"
+                )
+            )
         )
 
     RETURN_TYPES = ()
@@ -150,12 +155,9 @@ class TRT_MODEL_CONVERSION_BASE:
         is_static: bool,
     ):
         output_onnx = os.path.normpath(
-            os.path.join(
-                os.path.join(self.temp_dir, "{}".format(time.time())), "model.onnx"
-            )
+            os.path.join(self.temp_dir, str(time.time()), "model.onnx")
         )
 
-        comfy.model_management.unload_all_models()
         comfy.model_management.load_models_gpu([model], force_patch_weights=True)
         unet = model.model.diffusion_model
 
@@ -163,11 +165,15 @@ class TRT_MODEL_CONVERSION_BASE:
         context_len = 77
         context_len_min = context_len
 
-        if context_dim is None: #SD3
-            context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
+        if context_dim is None:  # SD3
+            context_embedder_config = model.model.model_config.unet_config.get(
+                "context_embedder_config", None
+            )
             if context_embedder_config is not None:
-                context_dim = context_embedder_config.get("params", {}).get("in_features", None)
-                context_len = 154 #NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
+                context_dim = context_embedder_config.get("params", {}).get(
+                    "in_features", None
+                )
+                context_len = 154  # NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
 
         if context_dim is not None:
             input_names = ["x", "timesteps", "context"]
@@ -179,7 +185,7 @@ class TRT_MODEL_CONVERSION_BASE:
                 "context": {0: "batch", 1: "num_embeds"},
             }
 
-            transformer_options = model.model_options['transformer_options'].copy()
+            transformer_options = model.model_options["transformer_options"].copy()
             if model.model.model_config.unet_config.get(
                 "use_temporal_resblock", False
             ):  # SVD
@@ -205,7 +211,13 @@ class TRT_MODEL_CONVERSION_BASE:
                 unet = svd_unet
                 context_len_min = context_len = 1
             else:
+
                 class UNET(torch.nn.Module):
+                    def __init__(self, unet, opts):
+                        super().__init__()
+                        self.unet = unet
+                        self.transformer_options = opts
+
                     def forward(self, x, timesteps, context, y=None):
                         return self.unet(
                             x,
@@ -214,10 +226,8 @@ class TRT_MODEL_CONVERSION_BASE:
                             y,
                             transformer_options=self.transformer_options,
                         )
-                _unet = UNET()
-                _unet.unet = unet
-                _unet.transformer_options = transformer_options
-                unet = _unet
+
+                unet = UNET(unet, transformer_options)
 
             input_channels = model.model.model_config.unet_config.get("in_channels")
 
@@ -304,7 +314,9 @@ class TRT_MODEL_CONVERSION_BASE:
             profile.set_shape(input_names[k], min_shape, opt_shape, max_shape)
 
             # Encode shapes to filename
-            encode = lambda a: ".".join(map(lambda x: str(x), a))
+            def encode(a):
+                return ".".join(map(str, a))
+
             prefix_encode += "{}#{}#{}#{};".format(
                 input_names[k], encode(min_shape), encode(opt_shape), encode(max_shape)
             )
