@@ -153,15 +153,11 @@ class TRT_MODEL_CONVERSION_BASE:
         context_max,
         num_video_frames,
         is_static: bool,
-        unload_before: bool = True,
-        unload_after: bool = True,
     ):
         output_onnx = os.path.normpath(
             os.path.join(self.temp_dir, str(time.time()), "model.onnx")
         )
 
-        if unload_before:
-            comfy.model_management.unload_all_models()
         comfy.model_management.load_models_gpu([model], force_patch_weights=True)
         unet = model.model.diffusion_model
 
@@ -286,8 +282,7 @@ class TRT_MODEL_CONVERSION_BASE:
             dynamic_axes=dynamic_axes,
         )
 
-        if unload_after:
-            comfy.model_management.unload_all_models()
+        comfy.model_management.unload_all_models()
         comfy.model_management.soft_empty_cache()
 
         # TRT conversion starts here
@@ -606,8 +601,6 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
                         "step": 1,
                     },
                 ),
-                "unload_before": ("BOOLEAN", {"default": True}),
-                "unload_after": ("BOOLEAN", {"default": True}),
             },
         }
 
@@ -620,8 +613,6 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         width_opt,
         context_opt,
         num_video_frames,
-        unload_before: bool = True,
-        unload_after: bool = True,
     ):
         return super()._convert(
             model,
@@ -640,8 +631,6 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
             context_opt,
             num_video_frames,
             is_static=True,
-            unload_before=unload_before,
-            unload_after=unload_after,
         )
 
 
