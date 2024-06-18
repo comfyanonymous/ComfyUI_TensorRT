@@ -96,7 +96,7 @@ class TrTUnet:
                 x = model_inputs_converted[k]
                 self.context.set_tensor_address(k, x[(x.shape[0] // curr_split_batch) * i:].data_ptr())
             self.context.execute_async_v3(stream_handle=stream.cuda_stream)
-        stream.synchronize()
+        # stream.synchronize() #don't need to sync stream since it's the default torch one
         return out
 
     def load_state_dict(self, sd, strict=False):
