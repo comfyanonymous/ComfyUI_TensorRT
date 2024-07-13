@@ -12,6 +12,7 @@ Supports:
 - SDXL Turbo
 - Stable Video Diffusion
 - Stable Video Diffusion-XT 
+- AuraFlow
 
 Requirements:
 
