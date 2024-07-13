@@ -18,11 +18,13 @@ else:
         [os.path.join(folder_paths.models_dir, "tensorrt")], {".engine"})
 
 import tensorrt as trt
+from .tensorrt_error_recorder import TrTErrorRecorder
 
 trt.init_libnvinfer_plugins(None, "")
 
 logger = trt.Logger(trt.Logger.INFO)
 runtime = trt.Runtime(logger)
+runtime.error_recorder = TrTErrorRecorder()
 
 # Is there a function that already exists for this?
 def trt_datatype_to_torch(datatype):
@@ -35,11 +37,28 @@ def trt_datatype_to_torch(datatype):
     elif datatype == trt.bfloat16:
         return torch.bfloat16
 
+def check_for_trt_errors(runtime):
+    num_deserialize_errors = runtime.error_recorder.num_errors()
+    if num_deserialize_errors == 0:
+        return
+
+    error_string = ''
+    for error_index in range(num_deserialize_errors):
+        if error_index > 0:
+            error_string += "\n"
+        error_string += runtime.error_recorder.get_error_desc(error_index)
+    runtime.error_recorder.clear()
+    raise RuntimeError(f'Failed to deserialize TensorRT engine: {error_string}')
+
 class TrTUnet:
     def __init__(self, engine_path):
         with open(engine_path, "rb") as f:
             self.engine = runtime.deserialize_cuda_engine(f.read())
+        check_for_trt_errors(runtime)
+
         self.context = self.engine.create_execution_context()
+        check_for_trt_errors(runtime)
+
         self.dtype = torch.float16
 
     def set_bindings_shape(self, inputs, split_batch):
