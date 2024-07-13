@@ -9,7 +9,6 @@ import folder_paths
 from tqdm import tqdm
 
 # TODO:
-# Deal with xformers if it's enabled
 # Make it more generic: less model specific code
 
 # add output directory to tensorrt search path
@@ -163,11 +162,15 @@ class TRT_MODEL_CONVERSION_BASE:
         context_len = 77
         context_len_min = context_len
 
-        if context_dim is None: #SD3
+        if isinstance(model.model, comfy.model_base.SD3): #SD3
             context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
             if context_embedder_config is not None:
                 context_dim = context_embedder_config.get("params", {}).get("in_features", None)
                 context_len = 154 #NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
+        elif isinstance(model.model, comfy.model_base.AuraFlow):
+            context_dim = 2048
+            context_len_min = 256
+            context_len = 256
 
         if context_dim is not None:
             input_names = ["x", "timesteps", "context"]
@@ -207,19 +210,22 @@ class TRT_MODEL_CONVERSION_BASE:
             else:
                 class UNET(torch.nn.Module):
                     def forward(self, x, timesteps, context, y=None):
-                        return self.unet(
-                            x,
-                            timesteps,
-                            context,
-                            y,
-                            transformer_options=self.transformer_options,
-                        )
+                        if y is None:
+                            return self.unet(x, timesteps, context, transformer_options=self.transformer_options)
+                        else:
+                            return self.unet(
+                                x,
+                                timesteps,
+                                context,
+                                y,
+                                transformer_options=self.transformer_options,
+                            )
                 _unet = UNET()
                 _unet.unet = unet
                 _unet.transformer_options = transformer_options
                 unet = _unet
 
-            input_channels = model.model.model_config.unet_config.get("in_channels")
+            input_channels = model.model.model_config.unet_config.get("in_channels", 4)
 
             inputs_shapes_min = (
                 (batch_size_min, input_channels, height_min // 8, width_min // 8),
