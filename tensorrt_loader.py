@@ -48,7 +48,7 @@ def check_for_trt_errors(runtime):
             error_string += "\n"
         error_string += runtime.error_recorder.get_error_desc(error_index)
     runtime.error_recorder.clear()
-    raise RuntimeError(f'Failed to deserialize TensorRT engine: {error_string}')
+    raise RuntimeError(f'Failed to load TensorRT engine: {error_string}')
 
 class TrTUnet:
     def __init__(self, engine_path):
