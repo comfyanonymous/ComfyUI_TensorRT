@@ -54,6 +54,10 @@ class TrTUnet:
         if y is not None:
             model_inputs["y"] = y
 
+        for i in range(len(model_inputs), self.engine.num_io_tensors - 1):
+            name = self.engine.get_tensor_name(i)
+            model_inputs[name] = kwargs[name]
+
         batch_size = x.shape[0]
         dims = self.engine.get_tensor_profile_shape(self.engine.get_tensor_name(0), 0)
         min_batch = dims[0][0]
@@ -110,7 +114,7 @@ class TensorRTLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"unet_name": (folder_paths.get_filename_list("tensorrt"), ),
-                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow"], ),
+                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow", "flux"], ),
                              }}
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
@@ -148,6 +152,10 @@ class TensorRTLoader:
             model = conf.get_model({})
         elif model_type == "auraflow":
             conf = comfy.supported_models.AuraFlow({})
+            conf.unet_config["disable_unet_model_creation"] = True
+            model = conf.get_model({})
+        elif model_type == "flux":
+            conf = comfy.supported_models.Flux({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
         model.diffusion_model = unet

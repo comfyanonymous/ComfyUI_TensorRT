@@ -161,6 +161,8 @@ class TRT_MODEL_CONVERSION_BASE:
         context_dim = model.model.model_config.unet_config.get("context_dim", None)
         context_len = 77
         context_len_min = context_len
+        y_dim = model.model.adm_channels
+        extra_input = {}
 
         if isinstance(model.model, comfy.model_base.SD3): #SD3
             context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
@@ -171,6 +173,12 @@ class TRT_MODEL_CONVERSION_BASE:
             context_dim = 2048
             context_len_min = 256
             context_len = 256
+        elif isinstance(model.model, comfy.model_base.Flux):
+            context_dim = model.model.model_config.unet_config.get("context_in_dim", None)
+            context_len_min = 256
+            context_len = 256
+            y_dim = model.model.model_config.unet_config.get("vec_in_dim", None)
+            extra_input = {"guidance": ()}
 
         if context_dim is not None:
             input_names = ["x", "timesteps", "context"]
@@ -209,17 +217,13 @@ class TRT_MODEL_CONVERSION_BASE:
                 context_len_min = context_len = 1
             else:
                 class UNET(torch.nn.Module):
-                    def forward(self, x, timesteps, context, y=None):
-                        if y is None:
-                            return self.unet(x, timesteps, context, transformer_options=self.transformer_options)
-                        else:
-                            return self.unet(
-                                x,
-                                timesteps,
-                                context,
-                                y,
-                                transformer_options=self.transformer_options,
-                            )
+                    def forward(self, x, timesteps, context, *args):
+                        extras = input_names[3:]
+                        extra_args = {}
+                        for i in range(len(extras)):
+                            extra_args[extras[i]] = args[i]
+                        return self.unet(x, timesteps, context, transformer_options=self.transformer_options, **extra_args)
+
                 _unet = UNET()
                 _unet.unet = unet
                 _unet.transformer_options = transformer_options
@@ -243,14 +247,20 @@ class TRT_MODEL_CONVERSION_BASE:
                 (batch_size_max, context_len * context_max, context_dim),
             )
 
-            y_dim = model.model.adm_channels
-
             if y_dim > 0:
                 input_names.append("y")
                 dynamic_axes["y"] = {0: "batch"}
                 inputs_shapes_min += ((batch_size_min, y_dim),)
                 inputs_shapes_opt += ((batch_size_opt, y_dim),)
                 inputs_shapes_max += ((batch_size_max, y_dim),)
+
+            for k in extra_input:
+                input_names.append(k)
+                dynamic_axes[k] = {0: "batch"}
+                inputs_shapes_min += ((batch_size_min,) + extra_input[k],)
+                inputs_shapes_opt += ((batch_size_opt,) + extra_input[k],)
+                inputs_shapes_max += ((batch_size_max,) + extra_input[k],)
+
 
             inputs = ()
             for shape in inputs_shapes_opt:
