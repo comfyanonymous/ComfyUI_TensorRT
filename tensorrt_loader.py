@@ -110,7 +110,9 @@ class TensorRTLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"unet_name": (folder_paths.get_filename_list("tensorrt"), ),
-                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow"], ),
+                             "model_type": (["sdxl_base", "sdxl_refiner",
+                                             "sd1.x", "sd2.x-768v", "svd",
+                                             "sd3", "auraflow", "cosxl"], ),
                              }}
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
@@ -150,6 +152,10 @@ class TensorRTLoader:
             conf = comfy.supported_models.AuraFlow({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
+        elif model_type == "cosxl":
+            conf = comfy.supported_models.SDXL({"adm_in_channels": 2816})
+            conf.unet_config["disable_unet_model_creation"] = True
+            model = comfy.model_base.SDXL(conf, model_type=comfy.model_base.ModelType.V_PREDICTION_EDM)
         model.diffusion_model = unet
         model.memory_required = lambda *args, **kwargs: 0 #always pass inputs batched up as much as possible, our TRT code will handle batch splitting
 
