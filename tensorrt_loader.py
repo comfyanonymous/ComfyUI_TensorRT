@@ -114,7 +114,7 @@ class TensorRTLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"unet_name": (folder_paths.get_filename_list("tensorrt"), ),
-                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow", "flux"], ),
+                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow", "flux_dev", "flux_schnell"], ),
                              }}
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
@@ -154,8 +154,13 @@ class TensorRTLoader:
             conf = comfy.supported_models.AuraFlow({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
-        elif model_type == "flux":
+        elif model_type == "flux_dev":
             conf = comfy.supported_models.Flux({})
+            conf.unet_config["disable_unet_model_creation"] = True
+            model = conf.get_model({})
+            unet.dtype = torch.bfloat16 #TODO: autodetect
+        elif model_type == "flux_schnell":
+            conf = comfy.supported_models.FluxSchnell({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
             unet.dtype = torch.bfloat16 #TODO: autodetect
