@@ -163,6 +163,7 @@ class TRT_MODEL_CONVERSION_BASE:
         context_len_min = context_len
         y_dim = model.model.adm_channels
         extra_input = {}
+        dtype = torch.float16
 
         if isinstance(model.model, comfy.model_base.SD3): #SD3
             context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
@@ -179,6 +180,7 @@ class TRT_MODEL_CONVERSION_BASE:
             context_len = 256
             y_dim = model.model.model_config.unet_config.get("vec_in_dim", None)
             extra_input = {"guidance": ()}
+            dtype = torch.bfloat16
 
         if context_dim is not None:
             input_names = ["x", "timesteps", "context"]
@@ -268,7 +270,7 @@ class TRT_MODEL_CONVERSION_BASE:
                     torch.zeros(
                         shape,
                         device=comfy.model_management.get_torch_device(),
-                        dtype=torch.float16,
+                        dtype=dtype,
                     ),
                 )
 
@@ -325,7 +327,11 @@ class TRT_MODEL_CONVERSION_BASE:
                 input_names[k], encode(min_shape), encode(opt_shape), encode(max_shape)
             )
 
-        config.set_flag(trt.BuilderFlag.FP16)
+        if dtype == torch.float16:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if dtype == torch.bfloat16:
+            config.set_flag(trt.BuilderFlag.BF16)
+
         config.add_optimization_profile(profile)
 
         if is_static:
