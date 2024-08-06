@@ -1,2 +1,2 @@
 tensorrt>=10.0.1
-onnx
+onnx!=1.16.2
