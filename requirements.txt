@@ -1,3 +1,2 @@
-tensorrt>=10.0.1
+tensorrt>=10.0.1 --index-url https://pypi.nvidia.com
 onnx
---extra-index-url https://pypi.nvidia.com
