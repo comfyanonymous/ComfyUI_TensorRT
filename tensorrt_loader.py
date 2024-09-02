@@ -8,6 +8,7 @@ import comfy.model_management
 import comfy.model_patcher
 import comfy.supported_models
 import folder_paths
+from .onnx_utils.export import ModelType
 
 if "tensorrt" in folder_paths.folder_names_and_paths:
     folder_paths.folder_names_and_paths["tensorrt"][0].append(
@@ -114,7 +115,7 @@ class TensorRTLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"unet_name": (folder_paths.get_filename_list("tensorrt"), ),
-                             "model_type": (["sdxl_base", "sdxl_refiner", "sd1.x", "sd2.x-768v", "svd", "sd3", "auraflow", "flux_dev", "flux_schnell"], ),
+                             "model_type": (ModelType.list(), ),
                              }}
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
@@ -125,41 +126,41 @@ class TensorRTLoader:
         if not os.path.isfile(unet_path):
             raise FileNotFoundError(f"File {unet_path} does not exist")
         unet = TrTUnet(unet_path)
-        if model_type == "sdxl_base":
+        if model_type == ModelType.SDXL_BASE:
             conf = comfy.supported_models.SDXL({"adm_in_channels": 2816})
             conf.unet_config["disable_unet_model_creation"] = True
             model = comfy.model_base.SDXL(conf)
-        elif model_type == "sdxl_refiner":
+        elif model_type == ModelType.SDXL_REFINER:
             conf = comfy.supported_models.SDXLRefiner(
                 {"adm_in_channels": 2560})
             conf.unet_config["disable_unet_model_creation"] = True
             model = comfy.model_base.SDXLRefiner(conf)
-        elif model_type == "sd1.x":
+        elif model_type == ModelType.SD1x:
             conf = comfy.supported_models.SD15({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = comfy.model_base.BaseModel(conf)
-        elif model_type == "sd2.x-768v":
+        elif model_type == ModelType.SD2x768v:
             conf = comfy.supported_models.SD20({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = comfy.model_base.BaseModel(conf, model_type=comfy.model_base.ModelType.V_PREDICTION)
-        elif model_type == "svd":
+        elif model_type == ModelType.SVD:
             conf = comfy.supported_models.SVD_img2vid({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
-        elif model_type == "sd3":
+        elif model_type == ModelType.SD3:
             conf = comfy.supported_models.SD3({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
-        elif model_type == "auraflow":
+        elif model_type == ModelType.AuraFlow:
             conf = comfy.supported_models.AuraFlow({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
-        elif model_type == "flux_dev":
+        elif model_type == ModelType.FLUX_DEV:
             conf = comfy.supported_models.Flux({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
             unet.dtype = torch.bfloat16 #TODO: autodetect
-        elif model_type == "flux_schnell":
+        elif model_type == ModelType.FLUX_SCHNELL:
             conf = comfy.supported_models.FluxSchnell({})
             conf.unet_config["disable_unet_model_creation"] = True
             model = conf.get_model({})
@@ -173,4 +174,7 @@ class TensorRTLoader:
 
 NODE_CLASS_MAPPINGS = {
     "TensorRTLoader": TensorRTLoader,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "TensorRTLoader": "TensorRT Loader"
 }

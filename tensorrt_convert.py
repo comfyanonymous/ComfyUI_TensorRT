@@ -1,5 +1,3 @@
-import torch
-import sys
 import os
 import time
 import comfy.model_management
@@ -7,6 +5,13 @@ import comfy.model_management
 import tensorrt as trt
 import folder_paths
 from tqdm import tqdm
+from .onnx_utils.export import (
+    get_io_names, 
+    get_extra_input, 
+    get_shape,
+    export_onnx, 
+    ModelType
+    )
 
 # TODO:
 # Make it more generic: less model specific code
@@ -147,148 +152,26 @@ class TRT_MODEL_CONVERSION_BASE:
         context_max,
         num_video_frames,
         is_static: bool,
+        output_onnx: bool = False,
     ):
-        output_onnx = os.path.normpath(
-            os.path.join(
-                os.path.join(self.temp_dir, "{}".format(time.time())), "model.onnx"
-            )
-        )
-
-        comfy.model_management.unload_all_models()
-        comfy.model_management.load_models_gpu([model], force_patch_weights=True)
-        unet = model.model.diffusion_model
-
-        context_dim = model.model.model_config.unet_config.get("context_dim", None)
-        context_len = 77
-        context_len_min = context_len
-        y_dim = model.model.adm_channels
-        extra_input = {}
-        dtype = torch.float16
-
-        if isinstance(model.model, comfy.model_base.SD3): #SD3
-            context_embedder_config = model.model.model_config.unet_config.get("context_embedder_config", None)
-            if context_embedder_config is not None:
-                context_dim = context_embedder_config.get("params", {}).get("in_features", None)
-                context_len = 154 #NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
-        elif isinstance(model.model, comfy.model_base.AuraFlow):
-            context_dim = 2048
-            context_len_min = 256
-            context_len = 256
-        elif isinstance(model.model, comfy.model_base.Flux):
-            context_dim = model.model.model_config.unet_config.get("context_in_dim", None)
-            context_len_min = 256
-            context_len = 256
-            y_dim = model.model.model_config.unet_config.get("vec_in_dim", None)
-            extra_input = {"guidance": ()}
-            dtype = torch.bfloat16
-
-        if context_dim is not None:
-            input_names = ["x", "timesteps", "context"]
-            output_names = ["h"]
-
-            dynamic_axes = {
-                "x": {0: "batch", 2: "height", 3: "width"},
-                "timesteps": {0: "batch"},
-                "context": {0: "batch", 1: "num_embeds"},
-            }
-
-            transformer_options = model.model_options['transformer_options'].copy()
-            if model.model.model_config.unet_config.get(
-                "use_temporal_resblock", False
-            ):  # SVD
-                batch_size_min = num_video_frames * batch_size_min
-                batch_size_opt = num_video_frames * batch_size_opt
-                batch_size_max = num_video_frames * batch_size_max
-
-                class UNET(torch.nn.Module):
-                    def forward(self, x, timesteps, context, y):
-                        return self.unet(
-                            x,
-                            timesteps,
-                            context,
-                            y,
-                            num_video_frames=self.num_video_frames,
-                            transformer_options=self.transformer_options,
-                        )
-
-                svd_unet = UNET()
-                svd_unet.num_video_frames = num_video_frames
-                svd_unet.unet = unet
-                svd_unet.transformer_options = transformer_options
-                unet = svd_unet
-                context_len_min = context_len = 1
-            else:
-                class UNET(torch.nn.Module):
-                    def forward(self, x, timesteps, context, *args):
-                        extras = input_names[3:]
-                        extra_args = {}
-                        for i in range(len(extras)):
-                            extra_args[extras[i]] = args[i]
-                        return self.unet(x, timesteps, context, transformer_options=self.transformer_options, **extra_args)
-
-                _unet = UNET()
-                _unet.unet = unet
-                _unet.transformer_options = transformer_options
-                unet = _unet
-
-            input_channels = model.model.model_config.unet_config.get("in_channels", 4)
-
-            inputs_shapes_min = (
-                (batch_size_min, input_channels, height_min // 8, width_min // 8),
-                (batch_size_min,),
-                (batch_size_min, context_len_min * context_min, context_dim),
-            )
-            inputs_shapes_opt = (
-                (batch_size_opt, input_channels, height_opt // 8, width_opt // 8),
-                (batch_size_opt,),
-                (batch_size_opt, context_len * context_opt, context_dim),
-            )
-            inputs_shapes_max = (
-                (batch_size_max, input_channels, height_max // 8, width_max // 8),
-                (batch_size_max,),
-                (batch_size_max, context_len * context_max, context_dim),
-            )
-
-            if y_dim > 0:
-                input_names.append("y")
-                dynamic_axes["y"] = {0: "batch"}
-                inputs_shapes_min += ((batch_size_min, y_dim),)
-                inputs_shapes_opt += ((batch_size_opt, y_dim),)
-                inputs_shapes_max += ((batch_size_max, y_dim),)
-
-            for k in extra_input:
-                input_names.append(k)
-                dynamic_axes[k] = {0: "batch"}
-                inputs_shapes_min += ((batch_size_min,) + extra_input[k],)
-                inputs_shapes_opt += ((batch_size_opt,) + extra_input[k],)
-                inputs_shapes_max += ((batch_size_max,) + extra_input[k],)
-
-
-            inputs = ()
-            for shape in inputs_shapes_opt:
-                inputs += (
-                    torch.zeros(
-                        shape,
-                        device=comfy.model_management.get_torch_device(),
-                        dtype=dtype,
-                    ),
+        if not output_onnx:
+            output_onnx = os.path.normpath(
+                os.path.join(
+                    os.path.join(self.temp_dir, "{}".format(time.time())), "model.onnx"
                 )
+            )
+            os.makedirs(os.path.dirname(output_onnx), exist_ok=True)
 
-        else:
-            print("ERROR: model not supported.")
-            return ()
+            comfy.model_management.unload_all_models()
+            comfy.model_management.load_models_gpu([model], force_patch_weights=True)
+            export_onnx(model, output_onnx)
 
-        os.makedirs(os.path.dirname(output_onnx), exist_ok=True)
-        torch.onnx.export(
-            unet,
-            inputs,
-            output_onnx,
-            verbose=False,
-            input_names=input_names,
-            output_names=output_names,
-            opset_version=17,
-            dynamic_axes=dynamic_axes,
-        )
+        model_type = ModelType.detect_version(model)
+        y_dim, extra_input = get_extra_input(model, model_type)
+        input_names, _, _ = get_io_names(y_dim, extra_input)
+        inputs_shapes_min = get_shape(model, model_type, batch_size_min, width_min, height_min, context_min, num_video_frames, y_dim, extra_input)
+        inputs_shapes_opt = get_shape(model, model_type, batch_size_opt, width_opt, height_opt, context_opt, num_video_frames, y_dim, extra_input)
+        inputs_shapes_max = get_shape(model, model_type, batch_size_max, width_max, height_max, context_max, num_video_frames, y_dim, extra_input)
 
         comfy.model_management.unload_all_models()
         comfy.model_management.soft_empty_cache()
@@ -327,11 +210,7 @@ class TRT_MODEL_CONVERSION_BASE:
                 input_names[k], encode(min_shape), encode(opt_shape), encode(max_shape)
             )
 
-        if dtype == torch.float16:
-            config.set_flag(trt.BuilderFlag.FP16)
-        if dtype == torch.bfloat16:
-            config.set_flag(trt.BuilderFlag.BF16)
-
+        config.set_flag(trt.BuilderFlag.OBEY_PRECISION_CONSTRAINTS)
         config.add_optimization_profile(profile)
 
         if is_static:
@@ -372,6 +251,8 @@ class TRT_MODEL_CONVERSION_BASE:
             )
 
         serialized_engine = builder.build_serialized_network(network, config)
+        if serialized_engine is None:
+            raise Exception("Failed to build Engine")
 
         full_output_folder, filename, counter, subfolder, filename_prefix = (
             folder_paths.get_save_image_path(filename_prefix, self.output_dir)
@@ -516,6 +397,9 @@ class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
                     },
                 ),
             },
+            "optional": {
+                "onnx_model_path": ("STRING", {"default": "", "forceInput": True}),
+            }
         }
 
     def convert(
@@ -535,6 +419,7 @@ class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         context_opt,
         context_max,
         num_video_frames,
+        onnx_model_path,
     ):
         return super()._convert(
             model,
@@ -553,6 +438,7 @@ class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
             context_max,
             num_video_frames,
             is_static=False,
+            output_onnx=onnx_model_path,
         )
 
 
@@ -612,6 +498,9 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
                     },
                 ),
             },
+            "optional": {
+                "onnx_model_path": ("STRING", {"default": "", "forceInput": True}),
+            }
         }
 
     def convert(
@@ -623,6 +512,7 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         width_opt,
         context_opt,
         num_video_frames,
+        onnx_model_path,
     ):
         return super()._convert(
             model,
@@ -641,10 +531,15 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
             context_opt,
             num_video_frames,
             is_static=True,
+            output_onnx=onnx_model_path,
         )
 
 
 NODE_CLASS_MAPPINGS = {
     "DYNAMIC_TRT_MODEL_CONVERSION": DYNAMIC_TRT_MODEL_CONVERSION,
     "STATIC_TRT_MODEL_CONVERSION": STATIC_TRT_MODEL_CONVERSION,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "DYNAMIC_TRT_MODEL_CONVERSION": "DYNAMIC TRT_MODEL CONVERSION",
+    "STATIC TRT_MODEL CONVERSION": "STATIC_TRT_MODEL_CONVERSION",
 }
