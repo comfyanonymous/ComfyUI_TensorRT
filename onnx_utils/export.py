@@ -5,6 +5,8 @@ import comfy
 import os
 from typing import List
 from onnx.external_data_helper import _get_all_tensors, ExternalDataInfo
+import folder_paths
+import time
 
 
 def _get_onnx_external_data_tensors(model: onnx.ModelProto) -> List[str]:
@@ -260,10 +262,19 @@ def export_onnx(
     inputs = get_sample_input(input_shapes, dtype, device)
     backbone = get_backbone(model, model_type, input_names, num_video_frames)
 
+    dir, name = os.path.split(path)
+    temp_path = os.path.join(folder_paths.get_temp_directory(), "{}".format(time.time()))
+    onnx_temp = os.path.normpath(
+        os.path.join(temp_path, name)
+    )
+
+    if not os.path.exists(temp_path):
+        os.makedirs(temp_path)
+
     torch.onnx.export(
         backbone,
         inputs,
-        path,
+        onnx_temp,
         verbose=False,
         input_names=input_names,
         output_names=output_names,
@@ -273,16 +284,13 @@ def export_onnx(
 
     comfy.model_management.unload_all_models()
     comfy.model_management.soft_empty_cache()
-    dir, name = os.path.split(path)
-    onnx_model = onnx.load(path, load_external_data=False)
+
+    onnx_model = onnx.load(onnx_temp, load_external_data=True)
     tensors_paths = _get_onnx_external_data_tensors(onnx_model)
 
-    if not tensors_paths:
-        return
-
-    onnx_model = onnx.load(path, load_external_data=True)
-    for tensor in tensors_paths:
-        os.remove(os.path.join(dir, tensor))
+    if tensors_paths:
+        for tensor in tensors_paths:
+            os.remove(os.path.join(onnx_temp, tensor))
 
     onnx.save(
         onnx_model,
