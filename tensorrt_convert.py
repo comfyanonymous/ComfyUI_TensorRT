@@ -155,7 +155,7 @@ class TRT_MODEL_CONVERSION_BASE:
         )
 
         comfy.model_management.unload_all_models()
-        comfy.model_management.load_models_gpu([model], force_patch_weights=True)
+        comfy.model_management.load_models_gpu([model], force_patch_weights=True, force_full_load=True)
         unet = model.model.diffusion_model
 
         context_dim = model.model.model_config.unet_config.get("context_dim", None)
