@@ -5,6 +5,7 @@ import time
 import comfy.model_management
 
 import tensorrt as trt
+from .tensorrt_error_recorder import TrTErrorRecorder
 import folder_paths
 from tqdm import tqdm
 
@@ -296,6 +297,7 @@ class TRT_MODEL_CONVERSION_BASE:
         # TRT conversion starts here
         logger = trt.Logger(trt.Logger.INFO)
         builder = trt.Builder(logger)
+        builder.error_recorder = TrTErrorRecorder()
 
         network = builder.create_network(
             1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
