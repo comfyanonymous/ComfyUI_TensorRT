@@ -13,6 +13,7 @@ Supports:
 - Stable Video Diffusion
 - Stable Video Diffusion-XT 
 - AuraFlow
+- Flux
 
 Requirements:
 
@@ -23,6 +24,7 @@ Requirements:
   recommended.
 - For Stable Video Diffusion-XT (SVD-XT), a GPU with 24 GB or more VRAM
   is recommended.
+- For Flux more than 24GB vram is currently required.
 
 ## Installing
 

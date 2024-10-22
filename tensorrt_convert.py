@@ -163,7 +163,7 @@ class TRT_MODEL_CONVERSION_BASE:
             os.makedirs(os.path.dirname(output_onnx), exist_ok=True)
 
             comfy.model_management.unload_all_models()
-            comfy.model_management.load_models_gpu([model], force_patch_weights=True)
+            comfy.model_management.load_models_gpu([model], force_patch_weights=True, force_full_load=True)
             export_onnx(model, output_onnx)
 
         model_type = ModelType.detect_version(model)
