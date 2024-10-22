@@ -181,7 +181,7 @@ class TRT_MODEL_CONVERSION_BASE:
         builder = trt.Builder(logger)
 
         network = builder.create_network(
-            1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+            1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED)
         )
         parser = trt.OnnxParser(network, logger)
         success = parser.parse_from_file(output_onnx)
@@ -210,7 +210,6 @@ class TRT_MODEL_CONVERSION_BASE:
                 input_names[k], encode(min_shape), encode(opt_shape), encode(max_shape)
             )
 
-        config.set_flag(trt.BuilderFlag.OBEY_PRECISION_CONSTRAINTS)
         config.add_optimization_profile(profile)
 
         if is_static:

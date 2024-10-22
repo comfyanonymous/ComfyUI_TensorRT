@@ -46,7 +46,7 @@ class ModelType(Enum):
         elif isinstance(model.model, comfy.model_base.AuraFlow):
             return cls.AuraFlow
         elif isinstance(model.model, comfy.model_base.Flux):
-            if model.unet_config.guidance_embed:
+            if model.model.model_config.unet_config.get("guidance_embed", False):
                 return cls.FLUX_DEV
             else:
                 return cls.FLUX_SCHNELL
@@ -118,9 +118,12 @@ def get_shape(
 ):
     context_len = 77
     context_dim = model.model.model_config.unet_config.get("context_dim", None)
-    if model_type in (ModelType.AuraFlow, ModelType.FLUX_DEV, ModelType.FLUX_SCHNELL):
+    if model_type == ModelType.AuraFlow:
         context_len = 256
         context_dim = 2048
+    elif model_type in (ModelType.FLUX_DEV, ModelType.FLUX_SCHNELL):
+        context_len = 256
+        context_dim = model.model.model_config.unet_config.get("context_in_dim", None)
     elif model_type == ModelType.SD3:
         context_embedder_config = model.model.model_config.unet_config.get(
             "context_embedder_config", None
@@ -278,7 +281,7 @@ def export_onnx(
         verbose=False,
         input_names=input_names,
         output_names=output_names,
-        opset_version=19,
+        opset_version=17,
         dynamic_axes=dynamic_axes,
     )
 
