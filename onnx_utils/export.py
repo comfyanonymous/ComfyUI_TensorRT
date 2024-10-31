@@ -1,12 +1,15 @@
 import onnx
 import torch
-from enum import Enum
+import numpy as np
+from onnx import numpy_helper
+import json
 import comfy
 import os
 from typing import List
 from onnx.external_data_helper import _get_all_tensors, ExternalDataInfo
 import folder_paths
 import time
+from ..models import detect_version_from_model, get_helper_from_model
 
 
 def _get_onnx_external_data_tensors(model: onnx.ModelProto) -> List[str]:
@@ -24,161 +27,25 @@ def _get_onnx_external_data_tensors(model: onnx.ModelProto) -> List[str]:
     return model_tensors_ext
 
 
-class ModelType(Enum):
-    SD1x = "SD1.x"
-    SD2x768v = "SD2.x-768v"
-    SDXL_BASE = "SDXL-Base"
-    SDXL_REFINER = "SDXL-Refiner"
-    SVD = "SVD"
-    SD3 = "SD3"
-    AuraFlow = "AuraFlow"
-    FLUX_DEV = "FLUX-Dev"
-    FLUX_SCHNELL = "FLUX-Schnell"
-    UNKNOWN = "Unknown"
-
-    def __eq__(self, value: object) -> bool:
-        return self.value == value
-
-    @classmethod
-    def detect_version(cls, model):
-        if isinstance(model.model, comfy.model_base.SD3):
-            return cls.SD3
-        elif isinstance(model.model, comfy.model_base.AuraFlow):
-            return cls.AuraFlow
-        elif isinstance(model.model, comfy.model_base.Flux):
-            if model.model.model_config.unet_config.get("guidance_embed", False):
-                return cls.FLUX_DEV
-            else:
-                return cls.FLUX_SCHNELL
-
-        if model.model.model_config.unet_config.get("use_temporal_resblock", False):
-            return cls.SVD
-
-        context_dim = model.model.model_config.unet_config.get("context_dim", None)
-        y_dim = model.model.adm_channels
-
-        if context_dim == 768:
-            return cls.SD1x
-        elif context_dim == 1024:
-            return cls.SD2x768v
-        elif context_dim == 2048:
-            if y_dim == 2560:
-                return cls.SDXL_REFINER
-            elif y_dim == 2816:
-                return cls.SDXL_BASE
-
-        return cls.UNKNOWN
-
-    @classmethod
-    def list(cls):
-        return list(map(lambda c: c.value, cls))
-
-    @classmethod
-    def list_mo_support(cls):
-        return [
-            cls.SD1x,
-            cls.SD2x768v,
-            cls.SDXL_BASE,
-            cls.SDXL_REFINER,
-            cls.SD3,
-            cls.FLUX_DEV,
-        ]
-
-
-def get_io_names(y_dim: int = None, extra_input: dict = {}):
-    input_names = ["x", "timesteps", "context"]
-    output_names = ["h"]
-    dynamic_axes = {
-        "x": {0: "batch", 2: "height", 3: "width"},
-        "timesteps": {0: "batch"},
-        "context": {0: "batch", 1: "num_embeds"},
-    }
-
-    if y_dim:
-        input_names.append("y")
-        dynamic_axes["y"] = {0: "batch"}
-
-    for k in extra_input:
-        input_names.append(k)
-        dynamic_axes[k] = {0: "batch"}
-
-    return input_names, output_names, dynamic_axes
-
-
-def get_shape(
-    model,
-    model_type: ModelType,
-    batch_size: int,
-    width: int,
-    height: int,
-    context_multiplier: int = 1,
-    num_video_frames: int = 12,
-    y_dim: int = None,
-    extra_input: dict = {}, # TODO batch_size*=2?
-):
-    context_len = 77
-    context_dim = model.model.model_config.unet_config.get("context_dim", None)
-    if model_type == ModelType.AuraFlow:
-        context_len = 256
-        context_dim = 2048
-    elif model_type in (ModelType.FLUX_DEV, ModelType.FLUX_SCHNELL):
-        context_len = 256
-        context_dim = model.model.model_config.unet_config.get("context_in_dim", None)
-    elif model_type == ModelType.SD3:
-        context_embedder_config = model.model.model_config.unet_config.get(
-            "context_embedder_config", None
-        )
-        if context_embedder_config is not None:
-            context_dim = context_embedder_config.get("params", {}).get(
-                "in_features", None
-            )
-            context_len = 154  # NOTE: SD3 can have 77 or 154 depending on which text encoders are used, this is why context_len_min stays 77
-    elif model_type == ModelType.SVD:
-        batch_size = batch_size * num_video_frames
-        context_len = 1
-
-    assert context_dim is not None
-
-    input_channels = model.model.model_config.unet_config.get("in_channels", 4)
-    inputs_shapes = (
-        (batch_size, input_channels, height // 8, width // 8),
-        (batch_size,),
-        (batch_size, context_len * context_multiplier, context_dim),
-    )
-    if y_dim > 0:
-        inputs_shapes += ((batch_size, y_dim),)
-
-    for k in extra_input:
-        inputs_shapes += ((batch_size,) + extra_input[k],)
-
-    return inputs_shapes
-
-
-def get_sample_input(input_shapes: tuple, dtype: torch.dtype, device: torch.device):
-    inputs = ()
-    for shape in input_shapes:
-        inputs += (
+def get_sample_input(input_shapes: dict, dtype: torch.dtype, device: torch.device):
+    inputs = []
+    for k, shape in input_shapes.items():
+        inputs.append(
             torch.zeros(
                 shape,
                 device=device,
                 dtype=dtype,
-            ),
+            )
         )
 
-    return inputs
+    return tuple(inputs)
 
 
-def get_dtype(model_type: ModelType):
-    if model_type in (ModelType.FLUX_DEV, ModelType.FLUX_SCHNELL):
-        return torch.bfloat16
-    return torch.float16
-
-
-def get_backbone(model, model_type, input_names, num_video_frames):
+def get_backbone(model, model_version, input_names, num_video_frames, use_control):
     unet = model.model.diffusion_model
     transformer_options = model.model_options["transformer_options"].copy()
 
-    if model_type == ModelType.SVD:
+    if model_version == "SVD_img2vid":
 
         class UNET(torch.nn.Module):
             def forward(self, x, timesteps, context, y):
@@ -201,9 +68,20 @@ def get_backbone(model, model_type, input_names, num_video_frames):
         class UNET(torch.nn.Module):
             def forward(self, x, timesteps, context, *args):
                 extras = input_names[3:]
+                control = {"input": [], "output": [], "middle": []}
                 extra_args = {}
                 for i in range(len(extras)):
-                    extra_args[extras[i]] = args[i]
+                    if "control" in extras[i]:
+                        if "input" in extras[i]:
+                            control["input"].append(args[i])
+                        elif "output" in extras[i]:
+                            control["output"].append(args[i])
+                        elif "middle" in extras[i]:
+                            control["middle"].append(args[i])
+                    else:
+                        extra_args[extras[i]] = args[i]
+                if use_control:
+                    extra_args["control"] = control
                 return self.unet(
                     x,
                     timesteps,
@@ -220,18 +98,67 @@ def get_backbone(model, model_type, input_names, num_video_frames):
     return unet
 
 
-def get_extra_input(model, model_type):
-    y_dim = model.model.adm_channels
-    extra_input = {}
-    if model_type in (ModelType.FLUX_DEV, ModelType.FLUX_SCHNELL):
-        y_dim = model.model.model_config.unet_config.get("vec_in_dim", None)
-        extra_input = {"guidance": ()}
-    return y_dim, extra_input
+# Helper utility for weights map
+def export_weights_map(state_dict, onnx_opt_path: str, weights_map_path: str):
+    onnx_opt_dir = onnx_opt_path
+    onnx_opt_model = onnx.load(onnx_opt_path)
 
+    # Create initializer data hashes
+    def init_hash_map(onnx_opt_model):
+        initializer_hash_mapping = {}
+        for initializer in onnx_opt_model.graph.initializer:
+            initializer_data = numpy_helper.to_array(
+                initializer, base_dir=onnx_opt_dir
+            ).astype(np.float16)
+            initializer_hash = hash(initializer_data.data.tobytes())
+            initializer_hash_mapping[initializer.name] = (
+                initializer_hash,
+                initializer_data.shape,
+            )
+        return initializer_hash_mapping
 
-def get_io_names_onnx(model: onnx.ModelProto):
-    input_names = [i.name for i in model.graph.input]
-    return input_names, None, None
+    initializer_hash_mapping = init_hash_map(onnx_opt_model)
+
+    weights_name_mapping = {}
+    weights_shape_mapping = {}
+    # set to keep track of initializers already added to the name_mapping dict
+    initializers_mapped = set()
+    for wt_name, wt in state_dict.items():
+        # get weight hash
+        wt = wt.cpu().detach().numpy().astype(np.float16)
+        wt_hash = hash(wt.data.tobytes())
+        wt_t_hash = hash(np.transpose(wt).data.tobytes())
+
+        for initializer_name, (
+            initializer_hash,
+            initializer_shape,
+        ) in initializer_hash_mapping.items():
+            # Due to constant folding, some weights are transposed during export
+            # To account for the transpose op, we compare the initializer hash to the
+            # hash for the weight and its transpose
+            if wt_hash == initializer_hash or wt_t_hash == initializer_hash:
+                # The assert below ensures there is a 1:1 mapping between
+                # PyTorch and ONNX weight names. It can be removed in cases where 1:many
+                # mapping is found and name_mapping[wt_name] = list()
+                assert initializer_name not in initializers_mapped
+                weights_name_mapping[wt_name] = initializer_name
+                initializers_mapped.add(initializer_name)
+                is_transpose = False if wt_hash == initializer_hash else True
+                weights_shape_mapping[wt_name] = (
+                    initializer_shape,
+                    is_transpose,
+                )
+
+        # Sanity check: Were any weights not matched
+        if wt_name not in weights_name_mapping:
+            print(f"[I] PyTorch weight {wt_name} not matched with any ONNX initializer")
+    print(
+        f"[I] UNet: {len(weights_name_mapping.keys())} PyTorch weights were matched with ONNX initializers"
+    )
+
+    assert weights_name_mapping.keys() == weights_shape_mapping.keys()
+    with open(weights_map_path, "w") as fp:
+        json.dump([weights_name_mapping, weights_shape_mapping], fp)
 
 
 def export_onnx(
@@ -240,36 +167,39 @@ def export_onnx(
     batch_size: int = 1,
     height: int = 512,
     width: int = 512,
-    num_video_frames: int = 12,
+    num_video_frames: int = 14,
     context_multiplier: int = 1,
+    use_control: bool = True,
 ):
-    model_type = ModelType.detect_version(model)
-    if model_type == ModelType.UNKNOWN:
-        raise Exception("ERROR: model not supported.")
+    model_version = detect_version_from_model(model)
+    model_helper = get_helper_from_model(model)
 
-    y_dim, extra_input = get_extra_input(model, model_type)
-    input_names, output_names, dynamic_axes = get_io_names(y_dim, extra_input)
-    dtype = get_dtype(model_type)
+    dtype = model_helper.get_dtype()
     device = comfy.model_management.get_torch_device()
-    input_shapes = get_shape(
-        model,
-        model_type,
-        batch_size,
-        width,
-        height,
-        context_multiplier,
-        num_video_frames,
-        y_dim,
-        extra_input,
+    input_names = model_helper.get_input_names()
+    output_names = model_helper.get_output_names()
+    dynamic_axes = model_helper.get_dynamic_axes()
+
+    if model_version == "SVD_img2vid":
+        batch_size *= num_video_frames
+    if model_helper.is_conditional:
+        batch_size *= 2
+    input_shapes = model_helper.get_input_shapes(
+        batch_size=batch_size,
+        height=height,
+        width=width,
+        context_multiplier=context_multiplier,
     )
     inputs = get_sample_input(input_shapes, dtype, device)
-    backbone = get_backbone(model, model_type, input_names, num_video_frames)
+    backbone = get_backbone(
+        model, model_version, input_names, num_video_frames, use_control
+    )
 
     dir, name = os.path.split(path)
-    temp_path = os.path.join(folder_paths.get_temp_directory(), "{}".format(time.time()))
-    onnx_temp = os.path.normpath(
-        os.path.join(temp_path, name)
+    temp_path = os.path.join(
+        folder_paths.get_temp_directory(), "{}".format(time.time())
     )
+    onnx_temp = os.path.normpath(os.path.join(temp_path, name))
 
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)

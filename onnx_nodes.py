@@ -28,7 +28,9 @@ class ONNX_EXPORT:
 
     def export(self, model, output_folder, filename):
         comfy.model_management.unload_all_models()
-        comfy.model_management.load_models_gpu([model], force_patch_weights=True, force_full_load=True)
+        comfy.model_management.load_models_gpu(
+            [model], force_patch_weights=True, force_full_load=True
+        )
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
 
