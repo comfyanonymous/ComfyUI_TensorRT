@@ -4,8 +4,8 @@ description = "TensorRT Node for ComfyUI\nThis node enables the best performance
 version = "0.1.8"
 license = "LICENSE"
 dependencies = [
-  "tensorrt>=10.0.1",
-  "onnx"
+    "tensorrt>=10.6",
+    "onnx"
 ]
 
 [project.urls]

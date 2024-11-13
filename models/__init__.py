@@ -1,3 +1,4 @@
+from .baseline import TRTModelUtil
 from .supported_models import (
     supported_models,
     unsupported_models,
@@ -6,4 +7,3 @@ from .supported_models import (
     get_helper_from_model,
     get_model_from_version,
 )
-from .baseline import TRTModelUtil

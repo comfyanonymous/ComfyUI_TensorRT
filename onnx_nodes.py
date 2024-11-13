@@ -1,10 +1,12 @@
 import os
-from .onnx_utils.export import export_onnx
+
 import comfy
 import folder_paths
 
+from .onnx_utils.export import export_onnx
 
-class ONNX_EXPORT:
+
+class ONNXExport:
     def __init__(self) -> None:
         pass
 
@@ -65,7 +67,7 @@ class ONNXModelSelector:
 
 
 NODE_CLASS_MAPPING = {
-    "ONNX_EXPORT": ONNX_EXPORT,
+    "ONNX_EXPORT": ONNXExport,
     "ONNXModelSelector": ONNXModelSelector,
 }
 

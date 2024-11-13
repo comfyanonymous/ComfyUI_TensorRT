@@ -38,7 +38,8 @@ class TensorRTLoader:
     FUNCTION = "load_unet"
     CATEGORY = "TensorRT"
 
-    def load_unet(self, unet_name, model_type):
+    @staticmethod
+    def load_unet(unet_name, model_type):
         unet_path = folder_paths.get_full_path("tensorrt", unet_name)
         model = TRTDiffusionBackbone.load_trt_model(unet_path, model_type)
         return (
@@ -50,7 +51,7 @@ class TensorRTLoader:
         )
 
 
-class TRT_MODEL_CONVERSION_BASE:
+class TRTBuildBase:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
         self.temp_dir = folder_paths.get_temp_directory()
@@ -72,24 +73,24 @@ class TRT_MODEL_CONVERSION_BASE:
         raise NotImplementedError
 
     def _convert(
-        self,
-        model,
-        filename_prefix,
-        batch_size_min,
-        batch_size_opt,
-        batch_size_max,
-        height_min,
-        height_opt,
-        height_max,
-        width_min,
-        width_opt,
-        width_max,
-        context_min,
-        context_opt,
-        context_max,
-        num_video_frames,
-        is_static: bool,
-        output_onnx: Optional[str] = None,
+            self,
+            model,
+            filename_prefix,
+            batch_size_min,
+            batch_size_opt,
+            batch_size_max,
+            height_min,
+            height_opt,
+            height_max,
+            width_min,
+            width_opt,
+            width_max,
+            context_min,
+            context_opt,
+            context_max,
+            num_video_frames,
+            is_static: bool,
+            output_onnx: Optional[str] = None,
     ):
         if output_onnx is None:
             output_onnx = os.path.normpath(
@@ -187,9 +188,9 @@ class TRT_MODEL_CONVERSION_BASE:
         return ()
 
 
-class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
+class DynamicTRTBuild(TRTBuildBase):
     def __init__(self):
-        super(DYNAMIC_TRT_MODEL_CONVERSION, self).__init__()
+        super(DynamicTRTBuild, self).__init__()
 
     @classmethod
     def INPUT_TYPES(s):
@@ -321,23 +322,23 @@ class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         }
 
     def convert(
-        self,
-        model,
-        filename_prefix,
-        batch_size_min,
-        batch_size_opt,
-        batch_size_max,
-        height_min,
-        height_opt,
-        height_max,
-        width_min,
-        width_opt,
-        width_max,
-        context_min,
-        context_opt,
-        context_max,
-        num_video_frames,
-        onnx_model_path,
+            self,
+            model,
+            filename_prefix,
+            batch_size_min,
+            batch_size_opt,
+            batch_size_max,
+            height_min,
+            height_opt,
+            height_max,
+            width_min,
+            width_opt,
+            width_max,
+            context_min,
+            context_opt,
+            context_max,
+            num_video_frames,
+            onnx_model_path,
     ):
         return super()._convert(
             model,
@@ -360,9 +361,9 @@ class DYNAMIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         )
 
 
-class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
+class StaticTRTBuild(TRTBuildBase):
     def __init__(self):
-        super(STATIC_TRT_MODEL_CONVERSION, self).__init__()
+        super(StaticTRTBuild, self).__init__()
 
     @classmethod
     def INPUT_TYPES(s):
@@ -422,15 +423,15 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
         }
 
     def convert(
-        self,
-        model,
-        filename_prefix,
-        batch_size_opt,
-        height_opt,
-        width_opt,
-        context_opt,
-        num_video_frames,
-        onnx_model_path,
+            self,
+            model,
+            filename_prefix,
+            batch_size_opt,
+            height_opt,
+            width_opt,
+            context_opt,
+            num_video_frames,
+            onnx_model_path,
     ):
         return super()._convert(
             model,
@@ -455,8 +456,8 @@ class STATIC_TRT_MODEL_CONVERSION(TRT_MODEL_CONVERSION_BASE):
 
 NODE_CLASS_MAPPINGS = {
     "TensorRTLoader": TensorRTLoader,
-    "DYNAMIC_TRT_MODEL_CONVERSION": DYNAMIC_TRT_MODEL_CONVERSION,
-    "STATIC_TRT_MODEL_CONVERSION": STATIC_TRT_MODEL_CONVERSION,
+    "DYNAMIC_TRT_MODEL_CONVERSION": DynamicTRTBuild,
+    "STATIC_TRT_MODEL_CONVERSION": StaticTRTBuild,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "TensorRTLoader": "TensorRT Loader",

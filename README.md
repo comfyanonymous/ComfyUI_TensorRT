@@ -1,7 +1,7 @@
 # TensorRT Node for ComfyUI
 
-This node enables the best performance on NVIDIA RTX™ Graphics Cards
- (GPUs) for Stable Diffusion by leveraging NVIDIA TensorRT.
+This node enables the best performance on NVIDIA RTX™ Graphics Cards(GPUs) for Stable Diffusion by leveraging NVIDIA
+TensorRT.
 
 Supports:
 
@@ -11,8 +11,7 @@ Supports:
 - SDXL
 - SDXL Turbo
 - Stable Video Diffusion
-- Stable Video Diffusion-XT 
-- AuraFlow
+- Stable Video Diffusion-XT- AuraFlow
 - Flux
 
 Requirements:
@@ -31,7 +30,8 @@ Requirements:
 The recommended way to install these nodes is to use the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager)
 to easily install them to your ComfyUI instance.
 
-You can also manually install them by git cloning the repo to your ComfyUI/custom_nodes folder and installing the requirements like:
+You can also manually install them by git cloning the repo to your ComfyUI/custom_nodes folder and installing the
+requirements like:
 
 ```
 cd custom_nodes
@@ -62,7 +62,7 @@ You have the option to build either dynamic or static TensorRT engines:
 Note: Most users will prefer dynamic engines, but static engines can be
 useful if you use a specific resolution + batch size combination most of
 the time. Static engines also require less VRAM; the wider the dynamic
-range, the more VRAM will be consumed.
+range, the more VRAM will be consumed.
 
 ## Instructions
 
@@ -71,19 +71,19 @@ These .json files can be loaded in ComfyUI.
 
 ### Building A TensorRT Engine From a Checkpoint
 
-1.  Add a Load Checkpoint Node
-2.  Add either a Static Model TensorRT Conversion node or a Dynamic
-    Model TensorRT Conversion node to ComfyUI
-3.  ![](readme_images/image3.png)
-4.  Connect the Load Checkpoint Model output to the TensorRT Conversion
-    Node Model input.
-5.  ![](readme_images/image5.png)
-6.  ![](readme_images/image2.png)
-7.  To help identify the converted TensorRT model, provide a meaningful
-    filename prefix, add this filename after “tensorrt/”
-8.  ![](readme_images/image9.png)
+1. Add a Load Checkpoint Node
+2. Add either a Static Model TensorRT Conversion node or a Dynamic
+   Model TensorRT Conversion node to ComfyUI
+3. ![](readme_images/image3.png)
+4. Connect the Load Checkpoint Model output to the TensorRT Conversion
+   Node Model input.
+5. ![](readme_images/image5.png)
+6. ![](readme_images/image2.png)
+7. To help identify the converted TensorRT model, provide a meaningful
+   filename prefix, add this filename after “tensorrt/”
+8. ![](readme_images/image9.png)
 
-9.  Click on Queue Prompt to start building the TensorRT Engines
+9. Click on Queue Prompt to start building the TensorRT Engines
 10. ![](readme_images/image7.png)
 
 ![](readme_images/image11.png)
@@ -96,9 +96,9 @@ the console.
 
 ![](readme_images/image4.png)
 
-The first time generating an engine for a checkpoint will take awhile.
+The first time generating an engine for a checkpoint will take a while.
 Additional engines generated thereafter for the same checkpoint will be
-much faster. Generating engines can take anywhere from 3-10 minutes for
+much faster. Generating engines can take anywhere from 3-10 minutes for
 the image generation models and 10-25 minutes for SVD. SVD-XT is an
 extremely extensive model - engine build times may take up to an hour.
 
@@ -115,33 +115,33 @@ TensorRT Engines are loaded using the TensorRT Loader node.
 ComfyUI TensorRT engines are not yet compatible with ControlNets or
 LoRAs. Compatibility will be enabled in a future update.
 
-1.  Add a TensorRT Loader node
-2.  Note, if a TensorRT Engine has been created during a ComfyUI
-    session, it will not show up in the TensorRT Loader until the
-    ComfyUI interface has been refreshed (F5 to refresh browser).
-3.  ![](readme_images/image6.png)
-4.  Select a TensorRT Engine from the unet_name dropdown
-5.  Dynamic Engines will use a filename format of:
+1. Add a TensorRT Loader node
+2. Note, if a TensorRT Engine has been created during a ComfyUI
+   session, it will not show up in the TensorRT Loader until the
+   ComfyUI interface has been refreshed (F5 to refresh browser).
+3. ![](readme_images/image6.png)
+4. Select a TensorRT Engine from the unet_name dropdown
+5. Dynamic Engines will use a filename format of:
 
 &nbsp;
 
-1.  dyn-b-min-max-opt-h-min-max-opt-w-min-max-opt
-2.  dyn=dynamic, b=batch size, h=height, w=width
+1. dyn-b-min-max-opt-h-min-max-opt-w-min-max-opt
+2. dyn=dynamic, b=batch size, h=height, w=width
 
 &nbsp;
 
-6.  Static Engine will use a filename format of:
+6. Static Engine will use a filename format of:
 
 &nbsp;
 
-1.  stat-b-opt-h-opt-w-opt
-2.  stat=static, b=batch size, h=height, w=width
+1. stat-b-opt-h-opt-w-opt
+2. stat=static, b=batch size, h=height, w=width
 
 &nbsp;
 
-7.  ![](readme_images/image8.png)
-8.  The model_type must match the model type of the TensorRT engine.
-9.  ![](readme_images/image10.png)
+7. ![](readme_images/image8.png)
+8. The model_type must match the model type of the TensorRT engine.
+9. ![](readme_images/image10.png)
 10. The CLIP and VAE for the workflow will need to be utilized from the
     original model checkpoint, the MODEL output from the TensorRT Loader
     will be connected to the Sampler.

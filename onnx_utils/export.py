@@ -1,14 +1,16 @@
+import json
+import os
+import time
+from typing import List
+
+import comfy
+import folder_paths
+import numpy as np
 import onnx
 import torch
-import numpy as np
 from onnx import numpy_helper
-import json
-import comfy
-import os
-from typing import List
 from onnx.external_data_helper import _get_all_tensors, ExternalDataInfo
-import folder_paths
-import time
+
 from ..models import detect_version_from_model, get_helper_from_model
 
 
@@ -22,7 +24,7 @@ def _get_onnx_external_data_tensors(model: onnx.ModelProto) -> List[str]:
         ExternalDataInfo(tensor).location
         for tensor in model_tensors
         if tensor.HasField("data_location")
-        and tensor.data_location == onnx.TensorProto.EXTERNAL
+           and tensor.data_location == onnx.TensorProto.EXTERNAL
     ]
     return model_tensors_ext
 
@@ -130,8 +132,8 @@ def export_weights_map(state_dict, onnx_opt_path: str, weights_map_path: str):
         wt_t_hash = hash(np.transpose(wt).data.tobytes())
 
         for initializer_name, (
-            initializer_hash,
-            initializer_shape,
+                initializer_hash,
+                initializer_shape,
         ) in initializer_hash_mapping.items():
             # Due to constant folding, some weights are transposed during export
             # To account for the transpose op, we compare the initializer hash to the
@@ -162,13 +164,13 @@ def export_weights_map(state_dict, onnx_opt_path: str, weights_map_path: str):
 
 
 def export_onnx(
-    model,
-    path,
-    batch_size: int = 1,
-    height: int = 512,
-    width: int = 512,
-    num_video_frames: int = 14,
-    context_multiplier: int = 1,
+        model,
+        path,
+        batch_size: int = 1,
+        height: int = 512,
+        width: int = 512,
+        num_video_frames: int = 14,
+        context_multiplier: int = 1,
 ):
     model_version = detect_version_from_model(model)
     model_helper = get_helper_from_model(model)
@@ -194,7 +196,7 @@ def export_onnx(
         model, model_version, input_names, num_video_frames, model_helper.use_control
     )
 
-    dir, name = os.path.split(path)
+    _, name = os.path.split(path)
     temp_path = os.path.join(
         folder_paths.get_temp_directory(), "{}".format(time.time())
     )

@@ -1,10 +1,12 @@
-import torch
-import tensorrt as trt
 import os
-from typing import Optional
-from tqdm import tqdm
 from math import prod
+from typing import Optional
+
 import comfy.model_management
+import tensorrt as trt
+import torch
+from tqdm import tqdm
+
 from .models import get_model_from_version, TRTModelUtil
 
 trt.init_libnvinfer_plugins(None, "")
@@ -31,6 +33,9 @@ class TRTModel(torch.nn.Module):
         self.engine = None
 
         self.model = model_helper
+        for k, v in self.model.model_attributes().items():
+            setattr(self, k, v)
+
         self.dtype = self.model.get_dtype()
         self.device = comfy.model_management.get_torch_device()
 
@@ -45,7 +50,8 @@ class TRTModel(torch.nn.Module):
         self.extra_inputs: dict[str, torch.Tensor] = {}
 
     # Sets up the builder to use the timing cache file, and creates it if it does not already exist
-    def _setup_timing_cache(self, config: trt.IBuilderConfig, timing_cache_path: str):
+    @staticmethod
+    def _setup_timing_cache(config: trt.IBuilderConfig, timing_cache_path: str):
         buffer = b""
         if os.path.exists(timing_cache_path):
             with open(timing_cache_path, mode="rb") as timing_cache_file:
@@ -57,7 +63,8 @@ class TRTModel(torch.nn.Module):
         config.set_timing_cache(timing_cache, ignore_mismatch=True)
 
     # Saves the config's timing cache to file
-    def _save_timing_cache(self, config: trt.IBuilderConfig, timing_cache_path: str):
+    @staticmethod
+    def _save_timing_cache(config: trt.IBuilderConfig, timing_cache_path: str):
         timing_cache: trt.ITimingCache = config.get_timing_cache()
         with open(timing_cache_path, "wb") as timing_cache_file:
             timing_cache_file.write(memoryview(timing_cache.serialize()))
@@ -82,19 +89,17 @@ class TRTModel(torch.nn.Module):
         return profile
 
     def build(
-        self,
-        onnx_path: str,
-        engine_path: str,
-        timing_cache_path: str,
-        opt_config: dict,
-        min_config: Optional[dict] = None,
-        max_config: Optional[dict] = None,
+            self,
+            onnx_path: str,
+            engine_path: str,
+            timing_cache_path: str,
+            opt_config: dict,
+            min_config: Optional[dict] = None,
+            max_config: Optional[dict] = None,
     ) -> bool:
         comfy.model_management.unload_all_models()
         comfy.model_management.soft_empty_cache()
 
-        # TRT conversion starts here
-        logger = trt.Logger(trt.Logger.INFO)
         builder = trt.Builder(logger)
 
         network = builder.create_network(
@@ -110,10 +115,12 @@ class TRTModel(torch.nn.Module):
             return False
 
         config = builder.create_builder_config()
+        # config.profiling_verbosity = trt.ProfilingVerbosity.DETAILED
         self._setup_timing_cache(config, timing_cache_path)
         config.progress_monitor = TQDMProgressMonitor()
         profile = self._create_profile(builder, min_config, opt_config, max_config)
         config.add_optimization_profile(profile)
+
         config.set_flag(trt.BuilderFlag.REFIT_IDENTICAL)  # STRIP_PLAN
 
         self.engine = builder.build_serialized_network(network, config)
@@ -184,7 +191,6 @@ class TRTDiffusionBackbone(TRTModel):
         width *= 8
         _, context_len, _ = model_inputs["context"].shape
         min_batch = dims[0][0]
-        opt_batch = dims[1][0]
         max_batch = dims[2][0]
         # Split batch if our batch is bigger than the max batch size the trt engine supports
         for i in range(max_batch, min_batch - 1, -1):
@@ -226,14 +232,14 @@ class TRTDiffusionBackbone(TRTModel):
 
     @torch.cuda.nvtx.range("__call__")
     def __call__(
-        self,
-        x,
-        timesteps,
-        context,
-        y=None,
-        control=None,
-        transformer_options=None,
-        **kwargs,
+            self,
+            x,
+            timesteps,
+            context,
+            y=None,
+            control=None,
+            transformer_options=None,
+            **kwargs,
     ):
         model_inputs = {"x": x, "timesteps": timesteps, "context": context}
 
@@ -245,9 +251,9 @@ class TRTDiffusionBackbone(TRTModel):
                 for i, tensor in enumerate(control_tensors):
                     model_inputs[f"{control_layer}_control_{i}"] = tensor
 
-        for k, v in kwargs.items():
-            # TODO actually needed? model_inputs[k] = v
-            pass
+        # TODO actually needed?
+        # for k, v in kwargs.items():
+        #     model_inputs[k] = v
 
         if self.current_shape != x.shape:
             self.setup_tensors(model_inputs)
@@ -268,7 +274,7 @@ class TRTDiffusionBackbone(TRTModel):
         for i in range(self.curr_split_batch):
             for k, v in model_inputs.items():
                 self.context.set_tensor_address(
-                    k, v[(v.shape[0] // self.curr_split_batch) * i :].data_ptr()
+                    k, v[(v.shape[0] // self.curr_split_batch) * i:].data_ptr()
                 )
             for k in self.extra_inputs.keys():
                 self.context.set_tensor_address(k, self.zero_pool.data_ptr())
@@ -289,22 +295,22 @@ class TQDMProgressMonitor(trt.IProgressMonitor):
         leave = False
         try:
             if parent_phase is not None:
-                nbIndents = (
-                    self._active_phases.get(parent_phase, {}).get(
-                        "nbIndents", self.max_indent
-                    )
-                    + 1
+                nb_indents = (
+                        self._active_phases.get(parent_phase, {}).get(
+                            "nbIndents", self.max_indent
+                        )
+                        + 1
                 )
-                if nbIndents >= self.max_indent:
+                if nb_indents >= self.max_indent:
                     return
             else:
-                nbIndents = 0
+                nb_indents = 0
                 leave = True
             self._active_phases[phase_name] = {
                 "tq": tqdm(
-                    total=num_steps, desc=phase_name, leave=leave, position=nbIndents
+                    total=num_steps, desc=phase_name, leave=leave, position=nb_indents
                 ),
-                "nbIndents": nbIndents,
+                "nbIndents": nb_indents,
                 "parent_phase": parent_phase,
             }
         except KeyboardInterrupt:
@@ -326,8 +332,8 @@ class TQDMProgressMonitor(trt.IProgressMonitor):
                         "parent_phase", None
                     )
                 if (
-                    self._active_phases[phase_name]["parent_phase"]
-                    in self._active_phases.keys()
+                        self._active_phases[phase_name]["parent_phase"]
+                        in self._active_phases.keys()
                 ):
                     self._active_phases[
                         self._active_phases[phase_name]["parent_phase"]

@@ -3,13 +3,13 @@ import torch
 
 class TRTModelUtil:
     def __init__(
-        self,
-        context_dim: int,
-        input_channels: int,
-        context_len: int,
-        use_control: bool = False,
-        *args,
-        **kwargs,
+            self,
+            context_dim: int,
+            input_channels: int,
+            context_len: int,
+            use_control: bool = False,
+            *args,
+            **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.context_dim = context_dim
@@ -100,3 +100,6 @@ class TRTModelUtil:
     @classmethod
     def from_model(cls, model, **kwargs):
         raise NotImplementedError
+
+    def model_attributes(self, **kwargs) -> dict:
+        return {}

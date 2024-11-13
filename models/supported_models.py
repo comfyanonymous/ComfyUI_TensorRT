@@ -1,6 +1,8 @@
+import comfy.supported_models
+
+from .auraflow import AuraFlow_TRT
 from .baseline import TRTModelUtil
 from .flux import Flux_TRT, FluxSchnell_TRT
-from .auraflow import AuraFlow_TRT
 from .sd3 import SD3_TRT
 from .sd_unet import (
     SD15_TRT,
@@ -16,7 +18,6 @@ from .sd_unet import (
     Segmind_Vega_TRT,
     SVD_img2vid_TRT,
 )
-import comfy.supported_models
 
 supported_models = {
     "SD15": SD15_TRT,

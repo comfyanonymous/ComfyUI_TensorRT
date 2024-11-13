@@ -1,6 +1,4 @@
-from .baseline import TRTModelUtil
 import torch
-
 from comfy.supported_models import (
     SD15,
     SD20,
@@ -17,19 +15,21 @@ from comfy.supported_models import (
     SDXL_instructpix2pix,
 )
 
+from .baseline import TRTModelUtil
+
 
 class UNetTRT(TRTModelUtil):
     def __init__(
-        self,
-        context_dim: int,
-        input_channels: int,
-        y_dim: int,
-        hidden_size: int,
-        channel_mult: tuple[int],
-        num_res_blocks: tuple[int],
-        context_len: int = 77,
-        *args,
-        **kwargs,
+            self,
+            context_dim: int,
+            input_channels: int,
+            y_dim: int,
+            hidden_size: int,
+            channel_mult: tuple[int],
+            num_res_blocks: tuple[int],
+            context_len: int = 77,
+            *args,
+            **kwargs,
     ) -> None:
         super().__init__(context_dim, input_channels, context_len, *args, **kwargs)
 
@@ -39,7 +39,7 @@ class UNetTRT(TRTModelUtil):
 
         self.channel_mult = channel_mult
         self.num_res_blocks = num_res_blocks
-        self.set_block_chans()
+        self.input_block_chans = self.set_block_chans()
 
         if self.y_dim:
             self.input_config.update({"y": {"batch": "{batch_size}", "y_dim": y_dim}})
@@ -62,7 +62,7 @@ class UNetTRT(TRTModelUtil):
                 ch = out_ch
                 ds *= 2
                 input_block_chans.append((ch, ds))
-        self.input_block_chans = input_block_chans
+        return input_block_chans
 
     @classmethod
     def from_model(cls, model, **kwargs):
@@ -114,7 +114,6 @@ class UNetTRT(TRTModelUtil):
             f"width{d}": "{width}//(8*" + str(d) + ")",
         }
         return control_input
-        # return {}
 
     def get_dtype(self):
         return torch.float16
@@ -122,14 +121,14 @@ class UNetTRT(TRTModelUtil):
 
 class SD15_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SD15.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=0,
-        hidden_size=SD15.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SD15.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=0,
+            hidden_size=SD15.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -142,20 +141,20 @@ class SD15_TRT(UNetTRT):
         )
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         return super(SD15_TRT, cls).from_model(model, use_control=True)
 
 
 class SD20_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SD20.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=0,
-        hidden_size=SD20.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SD20.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=0,
+            hidden_size=SD20.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -168,20 +167,20 @@ class SD20_TRT(UNetTRT):
         )
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         return super(SD20_TRT, cls).from_model(model, use_control=True)
 
 
 class SD21UnclipL_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SD21UnclipL.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=SD21UnclipL.unet_config["adm_in_channels"],
-        hidden_size=SD21UnclipL.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SD21UnclipL.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=SD21UnclipL.unet_config["adm_in_channels"],
+            hidden_size=SD21UnclipL.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -196,14 +195,14 @@ class SD21UnclipL_TRT(UNetTRT):
 
 class SD21UnclipH_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SD21UnclipH.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=SD21UnclipH.unet_config["adm_in_channels"],
-        hidden_size=SD21UnclipH.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SD21UnclipH.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=SD21UnclipH.unet_config["adm_in_channels"],
+            hidden_size=SD21UnclipH.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -218,14 +217,14 @@ class SD21UnclipH_TRT(UNetTRT):
 
 class SDXLRefiner_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SDXLRefiner.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=SDXLRefiner.unet_config["adm_in_channels"],
-        hidden_size=SDXLRefiner.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SDXLRefiner.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=SDXLRefiner.unet_config["adm_in_channels"],
+            hidden_size=SDXLRefiner.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -240,14 +239,14 @@ class SDXLRefiner_TRT(UNetTRT):
 
 class SDXL_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SDXL.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=SDXL.unet_config["adm_in_channels"],
-        hidden_size=SDXL.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SDXL.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=SDXL.unet_config["adm_in_channels"],
+            hidden_size=SDXL.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -260,20 +259,20 @@ class SDXL_TRT(UNetTRT):
         )
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         return super(SDXL_TRT, cls).from_model(model, use_control=True)
 
 
 class SSD1B_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SSD1B.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=SSD1B.unet_config["adm_in_channels"],
-        hidden_size=SSD1B.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SSD1B.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=SSD1B.unet_config["adm_in_channels"],
+            hidden_size=SSD1B.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -288,14 +287,14 @@ class SSD1B_TRT(UNetTRT):
 
 class Segmind_Vega_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=Segmind_Vega.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=Segmind_Vega.unet_config["adm_in_channels"],
-        hidden_size=Segmind_Vega.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),  # TODO
-        **kwargs,
+            self,
+            context_dim=Segmind_Vega.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=Segmind_Vega.unet_config["adm_in_channels"],
+            hidden_size=Segmind_Vega.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),  # TODO
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -310,14 +309,14 @@ class Segmind_Vega_TRT(UNetTRT):
 
 class KOALA_700M_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=KOALA_700M.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=KOALA_700M.unet_config["adm_in_channels"],
-        hidden_size=KOALA_700M.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),  # TODO
-        **kwargs,
+            self,
+            context_dim=KOALA_700M.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=KOALA_700M.unet_config["adm_in_channels"],
+            hidden_size=KOALA_700M.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),  # TODO
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -332,14 +331,14 @@ class KOALA_700M_TRT(UNetTRT):
 
 class KOALA_1B_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=KOALA_1B.unet_config["context_dim"],
-        input_channels=4,
-        y_dim=KOALA_1B.unet_config["adm_in_channels"],
-        hidden_size=KOALA_1B.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),  # TODO
-        **kwargs,
+            self,
+            context_dim=KOALA_1B.unet_config["context_dim"],
+            input_channels=4,
+            y_dim=KOALA_1B.unet_config["adm_in_channels"],
+            hidden_size=KOALA_1B.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),  # TODO
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -354,14 +353,14 @@ class KOALA_1B_TRT(UNetTRT):
 
 class SVD_img2vid_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SVD_img2vid.unet_config["context_dim"],
-        input_channels=8,
-        y_dim=SVD_img2vid.unet_config["adm_in_channels"],
-        hidden_size=SVD_img2vid.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SVD_img2vid.unet_config["context_dim"],
+            input_channels=8,
+            y_dim=SVD_img2vid.unet_config["adm_in_channels"],
+            hidden_size=SVD_img2vid.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -378,14 +377,14 @@ class SVD_img2vid_TRT(UNetTRT):
 
 class SD15_instructpix2pix_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SD15_instructpix2pix.unet_config["context_dim"],
-        input_channels=8,
-        y_dim=0,
-        hidden_size=SD15_instructpix2pix.unet_config["model_channels"],
-        channel_mult=(1, 2, 4, 4),
-        num_res_blocks=(2, 2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SD15_instructpix2pix.unet_config["context_dim"],
+            input_channels=8,
+            y_dim=0,
+            hidden_size=SD15_instructpix2pix.unet_config["model_channels"],
+            channel_mult=(1, 2, 4, 4),
+            num_res_blocks=(2, 2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,
@@ -400,14 +399,14 @@ class SD15_instructpix2pix_TRT(UNetTRT):
 
 class SDXL_instructpix2pix_TRT(UNetTRT):
     def __init__(
-        self,
-        context_dim=SDXL_instructpix2pix.unet_config["context_dim"],
-        input_channels=8,
-        y_dim=SDXL_instructpix2pix.unet_config["adm_in_channels"],
-        hidden_size=SDXL_instructpix2pix.unet_config["model_channels"],
-        channel_mult=(1, 2, 4),
-        num_res_blocks=(2, 2, 2),
-        **kwargs,
+            self,
+            context_dim=SDXL_instructpix2pix.unet_config["context_dim"],
+            input_channels=8,
+            y_dim=SDXL_instructpix2pix.unet_config["adm_in_channels"],
+            hidden_size=SDXL_instructpix2pix.unet_config["model_channels"],
+            channel_mult=(1, 2, 4),
+            num_res_blocks=(2, 2, 2),
+            **kwargs,
     ):
         super().__init__(
             context_dim,

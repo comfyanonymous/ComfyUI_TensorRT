@@ -1,17 +1,18 @@
-from .baseline import TRTModelUtil
 import torch
+
+from .baseline import TRTModelUtil
 
 
 class SD3_TRT(TRTModelUtil):
     def __init__(
-        self,
-        context_dim: int = 4096,
-        input_channels: int = 16,
-        y_dim: int = 2048,
-        hidden_size: int = 1536,
-        output_blocks: int = 24,
-        *args,
-        **kwargs,
+            self,
+            context_dim: int = 4096,
+            input_channels: int = 16,
+            y_dim: int = 2048,
+            hidden_size: int = 1536,
+            output_blocks: int = 24,
+            *args,
+            **kwargs,
     ) -> None:
         super().__init__(context_dim, input_channels, 77, *args, **kwargs)
 

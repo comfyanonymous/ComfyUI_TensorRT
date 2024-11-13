@@ -3,7 +3,7 @@ from .baseline import TRTModelUtil
 
 class AuraFlow_TRT(TRTModelUtil):
     def __init__(
-        self, context_dim=2048, input_channels=4, context_len=256, **kwargs
+            self, context_dim=2048, input_channels=4, context_len=256, **kwargs
     ) -> None:
         super().__init__(
             context_dim=context_dim,

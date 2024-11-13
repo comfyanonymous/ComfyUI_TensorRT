@@ -1,18 +1,19 @@
-from .baseline import TRTModelUtil
 import torch
+
+from .baseline import TRTModelUtil
 
 
 class FLuxBase(TRTModelUtil):
     def __init__(
-        self,
-        context_dim: int,
-        input_channels: int,
-        y_dim: int,
-        hidden_size: int,
-        double_blocks: int,
-        single_blocks: int,
-        *args,
-        **kwargs,
+            self,
+            context_dim: int,
+            input_channels: int,
+            y_dim: int,
+            hidden_size: int,
+            double_blocks: int,
+            single_blocks: int,
+            *args,
+            **kwargs,
     ) -> None:
         super().__init__(context_dim, input_channels, 256, *args, **kwargs)
 
@@ -34,13 +35,13 @@ class FLuxBase(TRTModelUtil):
 
     def to_dict(self):
         return {
-                "context_dim": self.context_dim,
-                "input_channels": self.input_channels,
-                "y_dim": self.y_dim,
-                "hidden_size": self.hidden_size,
-                "double_blocks": self.double_blocks,
-                "single_blocks": self.single_blocks,
-                "use_control": self.use_control,
+            "context_dim": self.context_dim,
+            "input_channels": self.input_channels,
+            "y_dim": self.y_dim,
+            "hidden_size": self.hidden_size,
+            "double_blocks": self.double_blocks,
+            "single_blocks": self.single_blocks,
+            "use_control": self.use_control,
         }
 
     def get_control(self):
@@ -74,17 +75,22 @@ class FLuxBase(TRTModelUtil):
             **kwargs,
         )
 
+    def model_attributes(self, **kwargs) -> dict:
+        return {
+            "double_blocks": [None, ] * self.double_blocks,
+        }
+
 
 class Flux_TRT(FLuxBase):
     def __init__(
-        self,
-        context_dim=4096,
-        input_channels=16,
-        y_dim=768,
-        hidden_size=3072,
-        double_blocks=19,
-        single_blocks=28,
-        **kwargs,
+            self,
+            context_dim=4096,
+            input_channels=16,
+            y_dim=768,
+            hidden_size=3072,
+            double_blocks=19,
+            single_blocks=28,
+            **kwargs,
     ):
         super().__init__(
             context_dim=context_dim,
@@ -97,20 +103,20 @@ class Flux_TRT(FLuxBase):
         )
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         return super(Flux_TRT, cls).from_model(model, use_control=True)
 
 
 class FluxSchnell_TRT(FLuxBase):
     def __init__(
-        self,
-        context_dim=4096,
-        input_channels=16,
-        y_dim=768,
-        hidden_size=3072,
-        double_blocks=19,
-        single_blocks=28,
-        **kwargs,
+            self,
+            context_dim=4096,
+            input_channels=16,
+            y_dim=768,
+            hidden_size=3072,
+            double_blocks=19,
+            single_blocks=28,
+            **kwargs,
     ):
         super().__init__(
             context_dim=context_dim,
@@ -123,5 +129,5 @@ class FluxSchnell_TRT(FLuxBase):
         )
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         return super(FluxSchnell_TRT, cls).from_model(model, use_control=True)
