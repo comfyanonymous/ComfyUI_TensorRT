@@ -169,7 +169,6 @@ def export_onnx(
     width: int = 512,
     num_video_frames: int = 14,
     context_multiplier: int = 1,
-    use_control: bool = True,
 ):
     model_version = detect_version_from_model(model)
     model_helper = get_helper_from_model(model)
@@ -192,7 +191,7 @@ def export_onnx(
     )
     inputs = get_sample_input(input_shapes, dtype, device)
     backbone = get_backbone(
-        model, model_version, input_names, num_video_frames, use_control
+        model, model_version, input_names, num_video_frames, model_helper.use_control
     )
 
     dir, name = os.path.split(path)

@@ -120,10 +120,9 @@ class TRTModel(torch.nn.Module):
         if self.engine is None:
             raise Exception("Failed to build Engine")
 
+        engine_view = memoryview(self.engine)
         model = {
-            "engine": torch.ByteTensor(
-                bytearray(self.engine)
-            ),  # TODO this isn't very efficient
+            "engine": torch.frombuffer(engine_view, dtype=torch.uint8),
             "config": self.model.to_dict(),
         }
         torch.save(model, engine_path)

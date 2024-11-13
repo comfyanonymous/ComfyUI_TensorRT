@@ -29,12 +29,11 @@ class FLuxBase(TRTModelUtil):
         self.input_config.update(self.extra_input)
 
         if self.use_control:
-            self.control = self.get_control(double_blocks, single_blocks)
+            self.control = self.get_control()
             self.input_config.update(self.control)
 
     def to_dict(self):
         return {
-            self.__name__: {
                 "context_dim": self.context_dim,
                 "input_channels": self.input_channels,
                 "y_dim": self.y_dim,
@@ -42,18 +41,17 @@ class FLuxBase(TRTModelUtil):
                 "double_blocks": self.double_blocks,
                 "single_blocks": self.single_blocks,
                 "use_control": self.use_control,
-            }
         }
 
-    def get_control(self, double_blocks: int, single_blocks: int):
+    def get_control(self):
         control_input = {}
-        for i in range(double_blocks):
+        for i in range(self.double_blocks):
             control_input[f"input_control_{i}"] = {
                 "batch": "{batch_size}",
                 "ids": "({height}*{width}//(8*2)**2)",
                 "hidden_size": self.hidden_size,
             }
-        for i in range(single_blocks):
+        for i in range(self.single_blocks):
             control_input[f"output_control_{i}"] = {
                 "batch": "{batch_size}",
                 "ids": "({height}*{width}//(8*2)**2)",

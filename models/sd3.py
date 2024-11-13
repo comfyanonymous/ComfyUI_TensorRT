@@ -27,7 +27,7 @@ class SD3_TRT(TRTModelUtil):
         self.input_config.update(self.extra_input)
 
         if self.use_control:
-            self.control = self.get_control(output_blocks)
+            self.control = self.get_control()
             self.input_config.update(self.control)
 
     def to_dict(self):
@@ -40,9 +40,9 @@ class SD3_TRT(TRTModelUtil):
             "use_control": self.use_control,
         }
 
-    def get_control(self, output_blocks: int):
+    def get_control(self):
         control_input = {}
-        for i in range(output_blocks):
+        for i in range(self.output_blocks):
             control_input[f"output_control_{i}"] = {
                 "batch": "{batch_size}",
                 "ids": "({height}*{width}//(8*2)**2)",

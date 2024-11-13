@@ -63,9 +63,7 @@ def get_helper_from_version(model_version: str, config: dict = {}) -> TRTModelUt
 
 def get_helper_from_model(model) -> TRTModelUtil:
     model_version = detect_version_from_model(model)
-    helper_cls = supported_models.get(model_version, None)
-    if helper_cls is None:
-        raise NotImplementedError("{} is not supported.".format(model_version))
+    helper_cls = supported_models.get(model_version, TRTModelUtil)
     return helper_cls.from_model(model)
 
 
